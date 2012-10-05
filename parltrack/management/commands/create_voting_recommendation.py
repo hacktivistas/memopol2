@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding:Utf-8 -*-
 
 import re
@@ -8,6 +7,7 @@ import json
 from urllib import urlopen
 from datetime import datetime, time
 
+from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.db import transaction
 
@@ -17,22 +17,50 @@ from votes.utils import clean_all_trends
 from votes.models import RecommendationData, Proposal, Recommendation, Vote, Score
 from memopol2.utils import update_search_index
 
+
+class Command(BaseCommand):
+    help = 'Create a voting recommandation, WARNING: due to the nature of the data, there is sadly non-negligible chances that this command will fail'
+
+    def handle(self, *args, **options):
+        if len(args) not in (3, 4):
+            print >>sys.stderr, "Usage: %s <recommendationdata id> <{for,against}> <recommendation weight> <proposal ponderation=1 by default>" % __file__
+            sys.exit(1)
+        if len(args) == 4:
+            recommendationdata_id, recommendation, weight, proposal_ponderation = args
+        else:
+            recommendationdata_id, recommendation, weight = args
+            proposal_ponderation = 1
+        if recommendation not in ("for", "against"):
+            print recommendation
+            print >>sys.stderr, "Recommendation should be either 'for' or 'against'"
+            sys.exit(1)
+        with transaction.commit_on_success():
+            create_recommendation(*args)
+        sys.stdout.write("Update total score of all meps now\n")
+        update_total_score_of_all_meps(verbose=True)
+        update_meps_positions(verbose=True)
+        sys.stdout.write("Clean all deprecated trends\n")
+        clean_all_trends()
+        update_search_index()
+
+
 def get_proposal(proposal_name, proposal_ponderation):
     proposal = Proposal.objects.filter(title=proposal_name)
     if proposal:
+        return proposal[0]
+
+    _id = raw_input("Chose a proposal id (only letter and _) for '%s'\n>>> " % proposal_name)
+    while not re.match("^[0-9A-Za-z_]+$", _id):
+        _id = raw_input("Bad input, chose a proposal id (only letter and _) for '%s'\n>>> ")
+    proposal = Proposal.objects.filter(id=_id)
+    if proposal:
+        print "Get proposal that already exist with this id"
         proposal = proposal[0]
     else:
-        _id = raw_input("Chose a proposal id (only letter and _) for '%s'\n>>> " % proposal_name)
-        while not re.match("^[0-9A-Za-z_]+$", _id):
-            _id = raw_input("Bad input, chose a proposal id (only letter and _) for '%s'\n>>> ")
-        proposal = Proposal.objects.filter(id=_id)
-        if proposal:
-            print "Get proposal that already exist with this id"
-            proposal = proposal[0]
-        else:
-            print "Create new proposal"
-            proposal = Proposal.objects.create(title=proposal_name, id=_id, institution="EU", ponderation=int(proposal_ponderation))
+        print "Create new proposal"
+        proposal = Proposal.objects.create(title=proposal_name, id=_id, institution="EU", ponderation=int(proposal_ponderation))
     return proposal
+
 
 def create_recommendation(recommendationdata_id, choice, weight, proposal_ponderation=1):
     rd = RecommendationData.objects.get(id=recommendationdata_id)
@@ -142,26 +170,5 @@ def create_recommendation(recommendationdata_id, choice, weight, proposal_ponder
     sys.stdout.write("\n")
     rd.imported = True
     rd.save()
-
-if __name__ == "__main__":
-    if len(sys.argv) not in (4, 5):
-        print >>sys.stderr, "Usage: %s <recommendationdata id> <{for,against}> <recommendation weight> <proposal ponderation=1 by default>" % __file__
-        sys.exit(1)
-    if len(sys.argv) == 5:
-        recommendationdata_id, recommendation, weight, proposal_ponderation = sys.argv[1:]
-    else:
-        recommendationdata_id, recommendation, weight = sys.argv[1:]
-        proposal_ponderation = 1
-    if recommendation not in ("for", "against"):
-        print >>sys.stderr, "Recommendation should be either 'for' or 'against'"
-        sys.exit(1)
-    with transaction.commit_on_success():
-        create_recommendation(*sys.argv[1:])
-    sys.stdout.write("Update total score of all meps now\n")
-    update_total_score_of_all_meps(verbose=True)
-    update_meps_positions(verbose=True)
-    sys.stdout.write("Clean all deprecated trends\n")
-    clean_all_trends()
-    update_search_index()
 
 # vim:set shiftwidth=4 tabstop=4 expandtab:
