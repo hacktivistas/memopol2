@@ -17,11 +17,13 @@ if not os.path.exists("dumps"):
     os.mkdir("dumps")
 
 
-def read_or_dl(url, name):
-    if not os.path.exists("dumps/%s" % name):
-        open("dumps/%s" % name, "w").write(urlopen(url).read())
+def read_or_dl(url, name, prefix):
+    if not os.path.exists(prefix):
+        os.makedirs(prefix)
+    if not os.path.exists("%s/%s" % (prefix, name)):
+        open("%s/%s" % (prefix, name), "w").write(urlopen(url).read())
 
-    return open("dumps/%s" % name, "r")
+    return open("%s/%s" % (prefix, name), "r")
 
 
 def update_personal_informations(_mp, mp):
@@ -34,12 +36,13 @@ def update_personal_informations(_mp, mp):
     try:
         _mp.birth_date = parse(mp["date_naissance"])
     except:
-        print "[Warning] No birth date for " +mp["nom"].encode("Utf-8")
+        print "[Warning] No birth date for " + mp["nom"].encode("Utf-8")
 
     try:
         _mp.hemicycle_site = mp["place_en_hemicycle"]
-    except: 
-        _mp.hemicycle_site=0
+    except:
+        _mp.hemicycle_site = 0
+        _mp.active = False
     if mp["lieu_naissance"] is not None:
         _mp.birth_place = re.sub("\(.*", "", mp["lieu_naissance"])
         _mp.birth_department = re.sub(".*\(", "", mp["lieu_naissance"])[:-1]
@@ -56,14 +59,7 @@ def update_group_info(_mp, mp):
         _mp.group = get_or_create(Group, abbreviation="NI", name=u"Députés n'appartenant à aucun groupe")
         return
     _mp.group_role = mp["groupe"]["fonction"]
-
-    try: 
-        group = Group.objects.get(abbreviation=mp["groupe_sigle"])
-    except:
-        group = get_or_create(Group, abbreviation=mp["groupe_sigle"], name=mp["groupe"]["organisme"])
-        print "[Error] Group does not exist : " +mp["groupe_sigle"]
-        return  
-    _mp.group = group
+    _mp.group = get_or_create(Group, _id="abbreviation", abbreviation=mp["groupe_sigle"], name=mp["groupe"]["organisme"])
 
 
 def get_etudes_groups(_mp, mp):
@@ -76,7 +72,7 @@ def get_etudes_groups(_mp, mp):
             raise Exception
 
         function = get_or_create(Function, title=title, type=tipe)
-        get_or_create(FunctionMP, mp=_mp, function=function, role=group["fonction"])
+        get_or_create(FunctionMP, mp=_mp, function=function, role=group["fonction"], extra_parliamentary=False)
 
 
 def get_other_functions(_mp, mp):
@@ -132,14 +128,20 @@ def handle_function(i, _mp, extra):
 
 
 def get_department_and_circo(mp, _mp):
-    if mp["num_deptmt"] == 999:
-        get_or_create(Department, name="Etranger", number="999")
-    if mp["num_deptmt"] != 0:
+    if mp["num_deptmt"] in (999, "999"):
+        department = get_or_create(Department, name="Etranger", number="999")
+    elif mp["num_deptmt"] != 0:
         try:
             department = Department.objects.get(number=mp["num_deptmt"])
         except:
-            print "[Error] Department not in database : " + mp["num_deptmt"]
-            return
+            if mp["num_deptmt"] == "977":
+                department = Department.objects.get(number="987")
+                department.num_deptmt = "977"
+                department.save()
+                _mp.department = department
+            else:
+                print "[Error] Department not in database : " + mp["num_deptmt"]
+                return
     else: # TOREMOVE: code is fixed on nosdeputes side but cache is still active
         department = Department.objects.get(number=987)
     if mp["num_circo"] != 1:
@@ -150,9 +152,9 @@ def get_department_and_circo(mp, _mp):
     try:
         _mp.circonscription = Circonscription.objects.get(number=number, department=department)
     except:
-        _mp.circonscription=get_or_create(Circonscription, 
+        _mp.circonscription = get_or_create(Circonscription,
                 number=number, department=department)
-        print "[Warning] Created new Circonscription : "+number
+        print "[Warning] Created new Circonscription : " + number
 
 
 def get_new_websites(mp, _mp):
@@ -176,18 +178,21 @@ def create_uniq_id(mp_json):
 
 
 #Create a new mp that is empty
-#we will then fill it with the common update 
+#we will then fill it with the common update
 def create_new_mp(mp):
     _mp = MP()
     _mp.id = create_uniq_id(mp)
-    _mp.picture = _mp.id +".jpg"
+    _mp.picture = _mp.id + ".jpg"
     _mp.an_id=mp["url_an"].split("/")[-1].split(".")[0]
     if mp["place_en_hemicycle"] :
-        _mp.hemicycle_sit=mp["place_en_hemicycle"]
+        _mp.hemicycle_sit = mp["place_en_hemicycle"]
+        _mp.active = True
     else:
-        _mp.hemicycle_sit=0
-    _mp.active=True
+        _mp.hemicycle_sit = 0
+        _mp.active = False
     update_personal_informations(_mp, mp)
+    update_group_info(_mp, mp)
+    get_department_and_circo(mp, _mp)
     _mp.save()
     #get_new_emails(mp, _mp)
 
@@ -195,57 +200,63 @@ def create_new_mp(mp):
     print "MP created !"
     return _mp
 
+
+def update_mps(mps, prefix):
+    #update all MP to inactive
+    MP.objects.filter(active=True).update(active=False)
+
+    a = 0
+    for depute in mps["deputes"]:
+        a += 1
+        try:
+            an_id = depute["depute"]["url_an"].split("/")[-1].split(".")[0]
+            print an_id, " : ", depute["depute"]["url_nosdeputes_api"]
+
+            mp = load(read_or_dl(depute["depute"]["url_nosdeputes_api"], an_id, prefix))["depute"]
+        except HTTPError:
+            try:
+                print "Warning, failed to get a deputy, retrying in one seconde (url: %s)" % depute["depute"]["api_url"]
+                time.sleep(1)
+                mp = load(urlopen(depute["depute"]["url_nosdeputes_api"]))["depute"]
+            except HTTPError:
+                print "Didn't managed to get this deputy, abort"
+                print "Go repport the bug on irc.freenode.net#regardscitoyens"
+                sys.exit(1)
+        #except :
+        #    print "[Error] could not load this MP : " + mp["nom"].encode("Utf-8")
+        #    continue
+        print a, "-", mp["nom"].encode("Utf-8")
+        _mp = MP.objects.filter(an_id=mp["url_an"].split("/")[-1].split(".")[0])
+        print _mp
+        if not _mp:
+            print "missing:", mp["nom"].encode("Utf-8")
+            _mp = create_new_mp(mp)
+            #_mp = MP.objects.filter(an_id=mp["url_an"].split("/")[-1].split(".")[0])
+
+            if not _mp:
+                exit
+        else:
+            print _mp
+            _mp = _mp[0]
+        if not depute["depute"].get("ancien_depute"):
+            _mp.active = True
+        update_personal_informations(_mp, mp)
+
+        # clean
+        FunctionMP.objects.filter(mp=_mp).delete()
+        update_group_info(_mp, mp)
+        get_etudes_groups(_mp, mp)
+
+        get_other_functions(_mp, mp)
+        get_new_emails(mp, _mp)
+        get_new_websites(mp, _mp)
+        get_department_and_circo(mp, _mp)
+        _mp.save()
+
 if __name__ == "__main__":
-    mps = load(read_or_dl("http://www.nosdeputes.fr/deputes/json", "all_mps"))
+    old_mps = load(read_or_dl("http://2007-2012.nosdeputes.fr/deputes/json", "all_mps", "old_dumps"))
+    mps = load(read_or_dl("http://www.nosdeputes.fr/deputes/json", "all_mps", "dumps"))
 
     with transaction.commit_on_success():
-        #update all MP to inactive
-        MP.objects.filter(active=True).update(active=False)
-
-        a = 0
-        for depute in mps["deputes"]:
-            a += 1
-            try:
-                an_id = depute["depute"]["url_an"].split("/")[-1].split(".")[0]
-                print an_id +"  :  " +depute["depute"]["url_nosdeputes_api"]
-                
-                mp = load(read_or_dl(depute["depute"]["url_nosdeputes_api"], an_id))["depute"]
-            except HTTPError:
-                try:
-                    print "Warning, failed to get a deputy, retrying in one seconde (url: %s)" % depute["depute"]["api_url"]
-                    time.sleep(1)
-                    mp = load(urlopen(depute["depute"]["url_nosdeputes_api"]))["depute"]
-                except HTTPError:
-                    print "Didn't managed to get this deputy, abort"
-                    print "Go repport the bug on irc.freenode.net#regardscitoyens"
-                    sys.exit(1)
-            #except :
-            #    print "[Error] could not load this MP : "+mp["nom"].encode("Utf-8")
-            #    continue
-            print a, "-", mp["nom"].encode("Utf-8")
-            _mp = MP.objects.filter(an_id=mp["url_an"].split("/")[-1].split(".")[0])
-            print _mp
-            if not _mp:
-                print "missing:", mp["nom"].encode("Utf-8")
-                _mp = create_new_mp(mp)
-                #_mp = MP.objects.filter(an_id=mp["url_an"].split("/")[-1].split(".")[0])
-                
-                if not _mp:
-                    exit
-            else:
-                print _mp
-                _mp = _mp[0]
-            if not depute["depute"].get("ancien_depute"):
-                _mp.active = True
-            update_personal_informations(_mp, mp)
-
-            # clean
-            FunctionMP.objects.filter(mp=_mp).delete()
-            update_group_info(_mp, mp)
-            get_etudes_groups(_mp, mp)
-
-            get_other_functions(_mp, mp)
-            get_new_emails(mp, _mp)
-            get_new_websites(mp, _mp)
-            get_department_and_circo(mp, _mp)
-            _mp.save()
+        update_mps(old_mps, "old_dumps")
+        update_mps(mps, "dumps")
