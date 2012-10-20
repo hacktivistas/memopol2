@@ -1,69 +1,67 @@
 # -*- coding: utf-8 -*-
 import logging
-from django import forms
-from django.conf import settings
-from django.views.generic.simple import direct_to_template
-from whoosh.filedb.filestore import FileStorage
-from whoosh.qparser import QueryParser
-from search import Searchables
 
-from meps import models
-from mps import models
+from django.views.generic import TemplateView
+
+from haystack.query import SearchQuerySet, EmptySearchQuerySet
+
+from dynamiq.utils import get_advanced_search_formset_class, FormsetQBuilder, ParsedStringQBuilder
+
+from .forms import MEPSearchForm, MEPSearchAdvancedFormset
+from .shortcuts import TopRated, WorstRated
+
 
 log = logging.getLogger(__name__)
 
-types_choices = sorted([(k.__name__.lower(), k.__name__) for k in Searchables.items])
 
-class SearchForm(forms.Form):
-    q = forms.CharField(max_length=100, required=False, label='Search',
-                        widget=forms.TextInput(attrs={'autocomplete':'off'}))
-    types = forms.MultipleChoiceField(
-                widget=forms.CheckboxSelectMultiple(),
-                choices=types_choices, required=False)
+class SearchView(TemplateView):
+
+    template_name = 'search/search.html'
+
+    def get_context_data(self, **kwargs):
+        query = None
+        sort = None
+        limit = None
+        label = ""
+        q = ""
+
+        formset_class = get_advanced_search_formset_class(self.request.user, MEPSearchAdvancedFormset, MEPSearchForm)
+        if "q" in self.request.GET:
+            q = self.request.GET['q']
+            F = ParsedStringQBuilder(q, MEPSearchForm)
+            query, label = F()
+            formset = formset_class()
+        else:
+            formset = formset_class(self.request.GET or None)
+            formset.full_clean()
+            if formset.is_valid():
+                F = FormsetQBuilder(formset)
+                query, label = F()
+                sort = formset.options_form.cleaned_data.get("sort")
+                limit = formset.options_form.cleaned_data.get("limit", 15)
+
+        if query:
+            results = SearchQuerySet().filter(query)
+            if sort:
+                results = results.order_by(sort)
+            if limit:
+                results = results[:limit]
+        else:
+            results = EmptySearchQuerySet()
+        return {
+            "dynamiq": {
+                "results": results,
+                "q": q,
+                "label": label,
+                "formset": formset,
+                "shortcuts": [
+                    TopRated({"request": self.request}),
+                    WorstRated({"request": self.request})
+                ]
+            }
+        }
 
 
-def search(request, template_name='search.html'):
-    """
-    Simple search view, which accepts search queries via url, like google.
-    Use something like ?q=this+is+the+serch+term
+class XhrSearchView(SearchView):
 
-    """
-    hits = []
-    data = dict(
-            q = request.GET.get('q', ''),
-            types = request.GET.getlist('types') or [],
-        )
-    form = SearchForm(data)
-    form.is_valid()
-    query = form.cleaned_data['q']
-    types = form.cleaned_data['types']
-    limit = int(request.GET.get('limit', 0)) or None
-    if query not in (None, u"", u"*"):
-        storage = FileStorage(settings.WHOOSH_INDEX)
-        ix = storage.open_index(indexname='memopol')
-        # Whoosh don't understands '+' or '-' but we can replace
-        # them with 'AND' and 'NOT'.
-        query = query.replace('+', ' AND ').replace(' -', ' NOT ')
-        if types and len(types) != len(types_choices):
-            query = 'type:(%s) %s' % (' OR '.join(types), query)
-        parser = QueryParser("content", schema=ix.schema)
-        try:
-            qry = parser.parse(query)
-        except:
-            # don't show the user weird errors only because we don't
-            # understand the query.
-            # parser.parse("") would return None
-            qry = None
-        if qry is not None:
-            searcher = ix.searcher()
-            try:
-                hits = searcher.search(qry)
-            except Exception, e:
-                log.critical('Error while searching %s' % qry)
-                log.exception(e)
-            else:
-                if limit:
-                    hits = hits[:limit]
-        ix.close()
-    return direct_to_template(request, template_name,
-                              dict(form=form, hits=hits))
+    template_name = "search/xhr.html"
