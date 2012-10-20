@@ -60,6 +60,7 @@ COLORS =\
 (55, 157, 0))
 
 def color(score):
+    return (255, 255, 255)
     return COLORS[int(score/10)]
 
 def cached(expire):
