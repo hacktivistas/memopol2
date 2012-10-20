@@ -1,7 +1,8 @@
 # -*- coding:Utf-8 -*-
 import json
 from django.db import models
-from django.db.models import Avg
+from django.db.models import Avg, Sum
+from django.template.defaultfilters import floatformat
 
 from utils import clean_all_trends
 from reps.models import Representative
@@ -62,6 +63,10 @@ class Proposal(models.Model):
     def __unicode__(self):
         return self.title
 
+    @property
+    def total_score(self):
+        return self.ponderation * 10
+
 
 class Recommendation(models.Model):
     datetime = models.DateTimeField()
@@ -117,6 +122,10 @@ class Recommendation(models.Model):
     def abstent_count(self):
         return self._get_cached_count('abstent')
 
+    @reify
+    def max_score(self):
+        return float(self.weight) * self.proposal.total_score / Recommendation.objects.filter(proposal=self.proposal).aggregate(Sum('weight'))['weight__sum']
+
     def __unicode__(self):
         return self.subject
 
@@ -138,12 +147,25 @@ class Vote(models.Model):
     class Meta:
         ordering = ["choice"]
 
+    @property
+    def score(self):
+        if self.choice in ('for', 'against'):
+            if self.recommendation.recommendation == self.choice:
+                return "+%s" % floatformat(self.recommendation.max_score)
+            elif self.recommendation.recommendation != self.choice:
+                return "-%s" % floatformat(self.recommendation.max_score)
+        else:  # absent, abstention
+            if self.recommendation.recommendation == "against":
+                return "+%s" % (floatformat(self.recommendation.max_score / 2))
+            else:
+                return "-%s" % (floatformat(self.recommendation.max_score / 2))
+
     def __unicode__(self):
         return '%s (%s)' % (self.name, self.choice)
 
 
 class Score(models.Model):
-    value = models.FloatField()
+    value = models.IntegerField()
     representative = models.ForeignKey(Representative)
     proposal = models.ForeignKey(Proposal)
     date = models.DateField()
