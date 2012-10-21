@@ -167,6 +167,17 @@ $(document).ready(function() {
     </div>
 {% endif %}
 
+{% if mep.assistantmep_set.count %}
+<div id="assistants">
+    <h2 class="collapsible">Assistants</h2>
+    <ul class="body">
+    {% for assistantmep in mep.assistantmep_set.all %}
+        <li>{{ assistantmep.assistant }}</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <h2>{% trans "Add a public position" %}</h2>
 <p>{% trans "Help us keep track of the public positions taken by this member of the European Parliament." %}</p>
 <div class="body">
