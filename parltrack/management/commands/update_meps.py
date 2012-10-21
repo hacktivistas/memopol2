@@ -16,7 +16,7 @@ from meps.utils import update_meps_positions
 from memopol2.utils import update_search_index, get_or_create
 
 from reps.models import PartyRepresentative, Email, WebSite, CV
-from meps.models import LocalParty, MEP, Delegation, DelegationRole, PostalAddress, Country, CountryMEP, Organization, OrganizationMEP, Committee, CommitteeRole, Group, GroupMEP, Building
+from meps.models import LocalParty, MEP, Delegation, DelegationRole, PostalAddress, Country, CountryMEP, Organization, OrganizationMEP, Committee, CommitteeRole, Group, GroupMEP, Building, Assistant
 
 
 JSON_DUMP_ARCHIVE_LOCALIZATION = join(settings.MEMOPOL_TMP_DIR, "ep_meps_current.json.xz")
@@ -240,6 +240,18 @@ def add_groups(mep, groups):
                                 #begin=_parse_date(group["start"]),
                                 #end=_parse_date(group["end"]))
 
+def add_assistants(mep, assistants):
+    print "Assistants for " + mep.full_name
+    for assist_type in assistants:
+        print "TYPE : " + assist_type
+        type_name = assist_type
+        for assistant in assistants[type_name]:
+            print assistant
+            get_or_create(Assistant, full_name=assistant, mep=mep,
+                    assistant_type= type_name)
+
+
+
 def manage_mep(mep, mep_json):
     change_mep_details(mep, mep_json)
     mep.committeerole_set.all().delete()
@@ -247,6 +259,7 @@ def manage_mep(mep, mep_json):
     add_delegations(mep, mep_json.get("Delegations", []))
     add_countries(mep, mep_json["Constituencies"])
     add_groups(mep, mep_json.get("Groups", []))
+    add_assistants(mep, mep_json.get("assistants", []))
     if mep_json.get("Addresses"):
         add_addrs(mep, mep_json["Addresses"])
     add_organizations(mep, mep_json.get("Staff", []))
@@ -275,7 +288,8 @@ def create_mep(mep_json):
     add_committees(mep, mep_json.get("Committees", []))
     add_delegations(mep, mep_json.get("Delegations", []))
     add_countries(mep, mep_json["Constituencies"])
-    add_groups(mep, mep_json["Groups"])
+    add_groups(mep, mep_json.get("Groups",[]))
+    add_assistants(mep, mep_json.get("assistant", []))
     add_organizations(mep, mep_json.get("Staff", []))
     if mep_json.get("Mail"):
         add_mep_email(mep, mep_json["Mail"])
