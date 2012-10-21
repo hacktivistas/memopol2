@@ -109,16 +109,43 @@ $(document).ready(function() {
 </div>
 {% endif %}
 
+{% if mep.opinionreps.opinion.comment %}
+  {% for l in mep.opinionreps.opinion.comment %}
+    {{ l.comment }}
+  {% endfor %}
+{% endif %}
+
 {% if mep.opinionreps %}
 <div id="opinions">
     <h2 class="collapsible collapsed">{% trans "Opinions (memopol v1)" %}</h2>
     <ul class="body opinions">
      {% for line in mep.opinionreps %}
-     <li><b><a href="{{ line.opinion.get_absolute_url }}">{{ line.opinion.title }}</b></a> {% blocktrans with line.date as opinion_date %}(on {{ opinion_date }}){% endblocktrans %}<br/>{% autoescape off %}{{ line.opinion.content }}{% endautoescape %} &nbsp; <a target="_" href="{{ line.opinion.url }}"><br/>{% trans "Read more..." %}</a> </li>
+     {# <li><b><a href="{{ line.opinion.get_absolute_url }}">{{ line.opinion.title }}</b></a> {% blocktrans with line.date as opinion_date %}(on {{ opinion_date }}){% endblocktrans %}<br/>{% autoescape off %}{{ line.opinion.content }}{% endautoescape %} &nbsp; <a target="_" href="{{ line.opinion.url }}"><br/>{% trans "Read more..." %}</a> </li> #}
+     <li>
+       <b><a href="{{ line.opinion.get_absolute_url }}">{{ line.opinion.title }}
+       </a></b> {% blocktrans with line.date as opinion_date %}(on {{ opinion_date }}){% endblocktrans %}<br/>
+       {% autoescape off %}{{ line.opinion.content }}{% endautoescape %} &nbsp; <a target="_" href="{{ line.opinion.url }}"><br/>{% trans "Read more..." %}</a> </li>
      {% endfor %}
     </ul>
 </div>
 {% endif %}
+
+<div id="opinionsV2">
+       <h2 class="collapsible collapsed">{% trans "Opinions (memopol v2)" %}</h2>
+       <ul class="body opinions">
+               {% get_comment_list for mep as comment_list %}
+               {% if comment_list %}
+                       {% for comment in comment_list %}
+                               <li>
+                                       <b><a href="">Titre Position</a></b>(on {{ comment.submit_date }})<br />
+                                       {% autoescape off %}{{ comment.comment }}{% endautoescape %}
+                                       &nbsp; {% if comment.user_url %}<a target="_" href="{{ comment.user_url }}">{% endif %}<br/>{% trans "Read more..." %}</a>
+                               </li>
+                       {% endfor %}
+               {% endif %}
+       </ul>
+</div>
+
 
 {% if mep.scores %}
     <div id="scores">
@@ -138,20 +165,6 @@ $(document).ready(function() {
             <p style="text-align: center;"><i><a href="{% url trends:documentation %}#mep">{% trans "Trends explanation" %}</a></i></p>
         {% endif %}
     </div>
-{% endif %}
-
-{% get_comment_list for mep as comment_list %}
-{% if comment_list %}
-<h2>{% trans "Public Positions" %}</h2>
-   <div class="body">
-      {% for comment in comment_list %}
-         <div>
-            <div>{{ comment.comment }}</div>
-            {% if comment.user_url %}<div>{{ comment.user_url }}</div>{% endif %}
-            <div>{{ comment.submit_date }}</div>
-         </div>
-      {% endfor %}
-   </div>
 {% endif %}
 
 <h2>{% trans "Add a public position" %}</h2>
