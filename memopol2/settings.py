@@ -177,6 +177,7 @@ INSTALLED_APPS = (
     'categories',
     'categories.editor',
     'endless_pagination',
+    'es.parliament',
 )
 
 if APPS_DEBUG:
