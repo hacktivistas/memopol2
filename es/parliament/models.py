@@ -4,15 +4,15 @@ from reps.models import Representative, Party
 class ESParlamentary(Representative):
     ce_id = models.IntegerField() # ID in congreso.es
     ce_email = models.CharField(max_length=255, null=True)
-    ce_estado_civil = models.CharField(max_length=255, null=True)
+    ce_estado_civil = models.TextField(blank=True)
     ce_cargo = models.CharField(max_length=255, null=True)
     ce_cargos_anteriores = models.CharField(max_length=255, null=True)
-    ce_curriculum = models.CharField(max_length=255, null=True)
-    ce_declaracion_bienes_url = models.URLField()
-    ce_declaracion_actividades_url = models.URLField()
+    ce_curriculum = models.TextField(blank=True)
+    ce_declaracion_bienes_url = models.URLField(default=None, null=True)
+    ce_declaracion_actividades_url = models.URLField(default=None, null=True)
     ce_circunscripcion = models.CharField(max_length=255, null=True)
     ce_legislatura = models.CharField(max_length=255, null=True)
-    ce_comisiones = models.CharField(max_length=255, null=True)
+    ce_comisiones = models.TextField(blank=True)
     # party - yuhu!!
     ce_partido = models.CharField(max_length=255, null=True)
     ce_grupo_parlamentario = models.CharField(max_length=255, null=True)
