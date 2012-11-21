@@ -50,6 +50,7 @@ urlpatterns = patterns('',  # pylint: disable=C0103
     url(r'^$', views.home, name='index'),
     url(r'^api/$', direct_to_template, {'template': 'api.html', 'extra_context': {"root_url": settings.ROOT_URL}}, name='api_doc'),
     url(r'^europe/parliament/', include('meps.urls', namespace='meps', app_name='meps')),
+    url(r'^spain/parliament/', include('es.parliament.urls', namespace='espar', app_name='espar')),
     url(r'^france/assemblee/', include('mps.urls', namespace='mps', app_name='mps')),
     url(r'^votes/', include('votes.urls', namespace='votes', app_name='votes')),
     url(r'^patches/', include('patch_o_maton.urls', namespace='patch_o_maton', app_name='patch_o_maton')),
