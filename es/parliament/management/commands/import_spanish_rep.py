@@ -24,7 +24,7 @@ class Command(BaseCommand):
             self.create_spain_rep(rep)
 
     def download_picture(self, pk, url):
-	filename = 'es/parliament/medias/img/esparlamentary/' + str(pk) + '.png' 
+	filename = 'es/parliament/medias/img/esparlamentary/' + str(pk) + '.jpg'
         try:
             fh = open(filename)
 	except IOError:
