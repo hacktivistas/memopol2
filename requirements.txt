@@ -1,8 +1,8 @@
-Django
+Django>=1.4
 South==0.7.3
 git+git://github.com/joymax/django-debug-toolbar.git
 numpy==1.5.1
-git+http://github.com/matplotlib/matplotlib.git@0fc9830fe946f6221e9ceff2910cd0c2118b0965
+git+git://github.com/matplotlib/matplotlib.git@0fc9830fe946f6221e9ceff2910cd0c2118b0965
 hg+https://bitbucket.org/gregmuellegger/django-contact-form-i18n#egg=django-contact-form
 django-flatblocks==0.5
 django-awesome-snippets>=0.2
@@ -12,14 +12,14 @@ pyquery
 WebTest
 nose
 django-simple-captcha
-pil
+PIL
 gunicorn
 django-extensions
 werkzeug
 pytidylib
 django-tastypie
 pyyaml
-git+https://github.com/toastdriven/django-haystack.git@master
+git+git://github.com/toastdriven/django-haystack.git@master
 git+git://github.com/liberation/django-ajax-selects.git
 git+git://github.com/liberation/django-extended-choices.git
 git+git://github.com/liberation/django-dynamiq-search-form.git
