@@ -139,11 +139,11 @@ First, you have to get all the votes data by running this command:
 If you want to update the available importables votes, just re-run this
 command.
 
-Then you need chose a vote on which you want to create a recommendation. For
+Then you need to choose a vote on which you want to create a recommendation. For
 this: got to `/votes/import/` on your instance (for example:
 http://mempol2.serverside.fr/votes/import/). There, you'll see the list of the
 importable votes (with not very user friendly name, those are the one given by
-the European Parliament). Chose a vote, click on it, grab it's "ID" as
+the European Parliament). Choose a vote, click on it, grab it's "ID" as
 specified on his page, then run:
 
     python manage.py create_voting_recommandation <vote id> <{for,against}> <weight of the recommendation> <weight of the proposal, 1 by default>
@@ -195,4 +195,4 @@ reference.
 Licence
 =======
 
-The Political is licenced under aGPLv3+. The original idea is from [gibus](http://gibus.sedrati-dinet.net/).
+The Political is licenced under AGPLv3+. The original idea is from [gibus](http://gibus.sedrati-dinet.net/).
