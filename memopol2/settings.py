@@ -177,6 +177,9 @@ INSTALLED_APPS = (
     'categories',
     'categories.editor',
     'endless_pagination',
+    'snippets',
+    'extended_choices',
+    'matplotlib',
     'es.parliament',
 )
 
